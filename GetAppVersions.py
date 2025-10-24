@@ -1,24 +1,8 @@
 import tkinter as tk
 import os
-import sys
 import subprocess
 import pandas as pd
 import tempfile
-
-
-# --- Stdout redirector for capturing print statements ---
-class StdoutRedirector:
-    def __init__(self, text_widget):
-        self.text_widget = text_widget
-
-    def write(self, message):
-        self.text_widget.insert(tk.END, message)
-        self.text_widget.see(tk.END)  # Auto-scroll to the end
-        self.text_widget.update()
-
-    def flush(self):
-        pass
-
 
 def run_adb_command(command):
     try:
@@ -51,10 +35,14 @@ def adb_connect_device():
 
 def get_package_versions():
     final_csv_file = "packages.csv"
-
+    only_third_party_checked = checkbox_var.get()
     # Step 1: Get list of packages and save to a temporary file
     try:
-        output = run_adb_command("shell pm list packages")
+        if only_third_party_checked:
+            output = run_adb_command("shell pm list packages -3")
+        else:
+            output = run_adb_command("shell pm list packages")
+
         if output is None:
             print("Failed to retrieve package list.")
             return
@@ -121,7 +109,7 @@ def get_package_versions():
 
 root = tk.Tk()
 root.title("Get App Versions")
-root.geometry("600x600")
+root.geometry("300x140")
 root.resizable(True, True)
 
 frame = tk.Frame(root, padx=20, pady=20)
@@ -133,21 +121,8 @@ start_button.pack(pady=3)
 connect_button = tk.Button(frame, text="Connect Device", command=adb_connect_device, width=30)
 connect_button.pack(pady=3)
 
-# --- Log Area for Terminal Messages ---
-log_frame = tk.Frame(frame)
-log_frame.pack(fill='both', expand=True)
-
-log_label = tk.Label(log_frame, text="Log Output:", font=('Helvetica', 10))
-log_label.pack(anchor='w')
-
-log_text = tk.Text(log_frame, height=10, width=50, font=('Helvetica', 9), wrap='word')
-log_text.pack(side='left', fill='both', expand=True)
-
-scrollbar = tk.Scrollbar(log_frame, orient='vertical', command=log_text.yview)
-scrollbar.pack(side='right', fill='y')
-log_text.config(yscrollcommand=scrollbar.set)
-
-# Redirect print statements to the log_text widget
-sys.stdout = StdoutRedirector(log_text)
+checkbox_var = tk.BooleanVar()
+only_third_party = tk.Checkbutton(frame, text="Only 3rd party apps?", variable=checkbox_var)
+only_third_party.pack(pady=0)
 
 root.mainloop()
