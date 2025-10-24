@@ -1,12 +1,10 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog, scrolledtext
-import threading
-from time import sleep
-import json
 import os
 import sys
-import time
 import subprocess
+import pandas as pd
+import tempfile
+
 
 # --- Stdout redirector for capturing print statements ---
 class StdoutRedirector:
@@ -21,6 +19,7 @@ class StdoutRedirector:
     def flush(self):
         pass
 
+
 def run_adb_command(command):
     try:
         result = subprocess.run(
@@ -33,39 +32,97 @@ def run_adb_command(command):
     except subprocess.CalledProcessError as e:
         print(f"Error executing command: {e}")
         print(f"Stderr: {e.stderr}")
-    return None
+        return None
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return None
+
 
 def adb_connect_device():
     try:
-        output = run_adb_command(
-            f"devices"
-        )
-        print(f"{output}")
-    except Exception:
-        print("Could not connect to device")
+        output = run_adb_command("devices")
+        if output:
+            print(f"{output}")
+        else:
+            print("No devices found.")
+    except Exception as e:
+        print(f"Could not connect to device: {e}")
+
 
 def get_package_versions():
-    try:
-        output = run_adb_command(
-            f"shell pm list packages"
-        )
-        #print(f"{output}")
-        process = subprocess.Popen(output, stdout=subprocess.PIPE, text=True, bufsize=1)
-        for line in process.stdout:
-            try:
-                line.replace('package:', '').strip()
-                print(f"{output}")
-            except Exception:
-                print("Error lol")
+    final_csv_file = "packages.csv"
 
-    except subprocess.CalledProcessError as e:
+    # Step 1: Get list of packages and save to a temporary file
+    try:
+        output = run_adb_command("shell pm list packages")
+        if output is None:
+            print("Failed to retrieve package list.")
+            return
+
+        # Parse package names
+        packages = [line.replace("package:", "").strip() for line in output.splitlines() if
+                    line.startswith("package:") and line.strip()]
+
+        if not packages:
+            print("No packages found.")
+            return
+
+        # Create DataFrame for package names
+        df = pd.DataFrame({"package_name": packages})
+
+        # Save to a temporary file
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as temp_file:
+            df.to_csv(temp_file.name, index=False)
+            temp_file_path = temp_file.name
+            print(f"Saved {len(packages)} package names to temporary file")
+
+        # Step 2: Read temporary file and add versions
+        df = pd.read_csv(temp_file_path)
+        versions = []
+
+        for package_name in df["package_name"]:
+            try:
+                # Run dumpsys command and filter for versionName
+                dumpsys_output = run_adb_command(f"shell dumpsys package {package_name}")
+                version = "N/A"
+                if dumpsys_output:
+                    # Look for versionName in the output
+                    for line in dumpsys_output.splitlines():
+                        if "versionName" in line:
+                            try:
+                                # Extract version after "versionName="
+                                version = line.split("versionName=")[-1].strip()
+                                break
+                            except IndexError:
+                                version = "N/A"
+                versions.append(version)
+                print(f"Got version {version} for {package_name}")
+            except Exception as e:
+                print(f"Error getting version for {package_name}: {e}")
+                versions.append("Error")
+
+        # Add versions to DataFrame
+        df["versionName"] = versions
+
+        # Save to final CSV
+        df.to_csv(final_csv_file, index=False)
+        print(f"\nSaved final output with {len(packages)} packages and versions to {final_csv_file}\n")
+
+        # Clean up temporary file
+        try:
+            os.unlink(temp_file_path)
+            print("Cleaned up temporary file")
+        except Exception as e:
+            print(f"Error cleaning up temporary file: {e}")
+
+    except Exception as e:
         print(f"Could not get versions: {e}")
 
 
 root = tk.Tk()
 root.title("Get App Versions")
-root.geometry("600x600")  # Increased height to accommodate more buttons
-root.resizable(False, False)
+root.geometry("600x600")
+root.resizable(True, True)
 
 frame = tk.Frame(root, padx=20, pady=20)
 frame.pack(expand=True, fill='both')
