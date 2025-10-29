@@ -3,6 +3,7 @@ import os
 import subprocess
 import pandas as pd
 import tempfile
+from google_play_scraper import app
 
 def run_adb_command(command):
     try:
@@ -32,6 +33,16 @@ def adb_connect_device():
     except Exception as e:
         print(f"Could not connect to device: {e}")
 
+def get_app_title(app_id):
+    try:
+        result = app(app_id)
+        if result and 'title' in result:
+            return result['title']
+        else:
+            return "N/A"
+    except Exception as e:
+        print(f"Error scraping app with ID {app_id}: {e}")
+        return None
 
 def get_package_versions():
     final_csv_file = "packages.csv"
@@ -67,6 +78,7 @@ def get_package_versions():
         # Step 2: Read temporary file and add versions
         df = pd.read_csv(temp_file_path)
         versions = []
+        app_name = []
 
         for package_name in df["package_name"]:
             try:
@@ -88,9 +100,19 @@ def get_package_versions():
             except Exception as e:
                 print(f"Error getting version for {package_name}: {e}")
                 versions.append("Error")
+            if play_scraper_checkbox_var:
+                try:
+                    app_title = get_app_title(package_name)
+                    app_name.append(app_title)
+                except Exception as e:
+                    print (f"Could not find {package_name} app name on play store")
+                    app_name.append("N/A")
+
+
 
         # Add versions to DataFrame
         df["versionName"] = versions
+        df["App Name"] = app_name
 
         # Save to final CSV
         df.to_csv(final_csv_file, index=False)
@@ -109,8 +131,8 @@ def get_package_versions():
 
 root = tk.Tk()
 root.title("Get App Versions")
-root.geometry("300x140")
-root.resizable(True, True)
+root.geometry("300x180")
+root.resizable(False, False)
 
 frame = tk.Frame(root, padx=20, pady=20)
 frame.pack(expand=True, fill='both')
@@ -124,5 +146,9 @@ connect_button.pack(pady=3)
 checkbox_var = tk.BooleanVar()
 only_third_party = tk.Checkbutton(frame, text="Only 3rd party apps?", variable=checkbox_var)
 only_third_party.pack(pady=0)
+
+play_scraper_checkbox_var = tk.BooleanVar()
+get_app_name_checkbox = tk.Checkbutton(frame, text="Get app name?", variable=play_scraper_checkbox_var)
+get_app_name_checkbox.pack(pady=0)
 
 root.mainloop()
