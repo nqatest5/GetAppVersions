@@ -1,14 +1,13 @@
 import tkinter as tk
 import os
 import subprocess
-import pandas as pd
-import tempfile
+import csv
 from google_play_scraper import app
 
 def run_adb_command(command):
     try:
         result = subprocess.run(
-            ['adb'] + command.split(),  # Split command into a list
+            ['adb'] + command.split(),
             capture_output=True,
             text=True,
             check=True
@@ -27,7 +26,7 @@ def adb_connect_device():
     try:
         output = run_adb_command("devices")
         if output:
-            print(f"{output}")
+            print("done")
         else:
             print("No devices found.")
     except Exception as e:
@@ -38,16 +37,13 @@ def get_app_title(app_id):
         result = app(app_id)
         if result and 'title' in result:
             return result['title']
-        else:
-            return "N/A"
     except Exception as e:
         print(f"Error scraping app with ID {app_id}: {e}")
-        return None
+        return ""
 
 def get_package_versions():
     final_csv_file = "packages.csv"
     only_third_party_checked = checkbox_var.get()
-    # Step 1: Get list of packages and save to a temporary file
     try:
         if only_third_party_checked:
             output = run_adb_command("shell pm list packages -3")
@@ -58,76 +54,50 @@ def get_package_versions():
             print("Failed to retrieve package list.")
             return
 
-        # Parse package names
         packages = [line.replace("package:", "").strip() for line in output.splitlines() if
                     line.startswith("package:") and line.strip()]
-
+        
         if not packages:
             print("No packages found.")
             return
 
-        # Create DataFrame for package names
-        df = pd.DataFrame({"package_name": packages})
+        # Open CSV file for writing
+        with open(final_csv_file, mode='w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            # Write header
+            header = ["package_name", "versionName"]
+            if play_scraper_checkbox_var.get():
+                header.append("App Name")
+            writer.writerow(header)
 
-        # Save to a temporary file
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv') as temp_file:
-            df.to_csv(temp_file.name, index=False)
-            temp_file_path = temp_file.name
-            print(f"Saved {len(packages)} package names to temporary file")
-
-        # Step 2: Read temporary file and add versions
-        df = pd.read_csv(temp_file_path)
-        versions = []
-        app_name = []
-
-        for package_name in df["package_name"]:
-            try:
-                # Run dumpsys command and filter for versionName
-                dumpsys_output = run_adb_command(f"shell dumpsys package {package_name}")
-                version = "N/A"
-                if dumpsys_output:
-                    # Look for versionName in the output
-                    for line in dumpsys_output.splitlines():
-                        if "versionName" in line:
-                            try:
-                                # Extract version after "versionName="
-                                version = line.split("versionName=")[-1].strip()
-                                break
-                            except IndexError:
-                                version = "N/A"
-                versions.append(version)
-                print(f"Got version {version} for {package_name}")
-            except Exception as e:
-                print(f"Error getting version for {package_name}: {e}")
-                versions.append("Error")
-            if play_scraper_checkbox_var:
+            for package_name in packages:
+                # Get version name
+                version =""
                 try:
-                    app_title = get_app_title(package_name)
-                    app_name.append(app_title)
+                    dumpsys_output = run_adb_command(f"shell dumpsys package {package_name} | grep 'versionName'")
+                    if dumpsys_output:
+                        version = dumpsys_output[12:]
+                    print(f"Got version {version} for {package_name}")
                 except Exception as e:
-                    print (f"Could not find {package_name} app name on play store")
-                    app_name.append("N/A")
+                    print(f"Error getting version for {package_name}: {e}")
 
+                # Get app name (if checkbox is checked)
+                if play_scraper_checkbox_var.get():
+                    try:
+                        app_title = get_app_title(package_name)
+                    except Exception as e:
+                        print(f"Could not find {package_name} app name on play store")
 
+                # Write row to CSV
+                row = [package_name, version]
+                if play_scraper_checkbox_var.get():
+                    row.append(app_title)
+                writer.writerow(row)
 
-        # Add versions to DataFrame
-        df["versionName"] = versions
-        df["App Name"] = app_name
-
-        # Save to final CSV
-        df.to_csv(final_csv_file, index=False)
         print(f"\nSaved final output with {len(packages)} packages and versions to {final_csv_file}\n")
-
-        # Clean up temporary file
-        try:
-            os.unlink(temp_file_path)
-            print("Cleaned up temporary file")
-        except Exception as e:
-            print(f"Error cleaning up temporary file: {e}")
 
     except Exception as e:
         print(f"Could not get versions: {e}")
-
 
 root = tk.Tk()
 root.title("Get App Versions")
