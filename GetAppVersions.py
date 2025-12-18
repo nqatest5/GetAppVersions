@@ -162,16 +162,29 @@ def get_package_versions(pb, root, test_type):
 
             # Process each section (Average, Post, etc.)
             for section_name, packages_dict in test_sections.items():
+                # Check if this is a blank space section
+                if section_name == "BLANK_SPACE" or len(packages_dict) == 0:
+                    # Just add empty rows for spacing
+                    writer.writerow([])
+                    writer.writerow([])
+                    continue
+
                 # Write section header
                 writer.writerow([f"=== {test_type} - {section_name} ==="])
                 writer.writerow([])  # Empty row for spacing
 
                 # Write column headers for this section
-                writer.writerow(["Package Name", "Version"])
+                writer.writerow(["Package Name", "App Name", "Version"])
 
                 # Process packages in this section
                 for package_name, app_name in packages_dict.items():
                     current_index += 1
+
+                    # Check if this is a blank space marker
+                    if package_name == "BLANK" or app_name == "":
+                        # Write blank row
+                        writer.writerow([])
+                        continue
 
                     # Get version name
                     version = get_app_version(package_name)
