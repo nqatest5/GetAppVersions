@@ -1,0 +1,30 @@
+{
+    "Sanity Test": {
+        "Average": {
+            "com.android.phone": "Phone",
+            "com.android.chrome": "Chrome",
+            "com.google.android.apps.maps": "Google Maps"
+        },
+        "Post": {
+            "com.android.settings": "Settings",
+            "com.android.camera2": "Camera",
+            "com.google.android.gm": "Gmail"
+        }
+    },
+    "Full Test": {
+        "Average": {
+            "com.android.phone": "Phone",
+            "com.android.chrome": "Chrome",
+            "com.google.android.apps.maps": "Google Maps",
+            "com.android.settings": "Settings",
+            "com.android.camera2": "Camera"
+        },
+        "Post": {
+            "com.google.android.gm": "Gmail",
+            "com.google.android.youtube": "YouTube",
+            "com.android.contacts": "Contacts",
+            "com.android.messaging": "Messages",
+            "com.google.android.apps.photos": "Google Photos"
+        }
+    }
+}
