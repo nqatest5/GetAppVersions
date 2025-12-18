@@ -1,8 +1,9 @@
 import tkinter as tk
-import os
+from tkinter import ttk
 import subprocess
 import csv
 from google_play_scraper import app
+import threading
 
 def run_adb_command(command):
     try:
@@ -10,7 +11,8 @@ def run_adb_command(command):
             ['adb'] + command.split(),
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            creationflags=0x08000000  # Tells Windows to run process without creating cmd window
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
@@ -41,14 +43,10 @@ def get_app_title(app_id):
         print(f"Error scraping app with ID {app_id}: {e}")
         return ""
 
-def get_package_versions():
+def get_package_versions(pb, root):
     final_csv_file = "packages.csv"
-    only_third_party_checked = checkbox_var.get()
     try:
-        if only_third_party_checked:
-            output = run_adb_command("shell pm list packages -3")
-        else:
-            output = run_adb_command("shell pm list packages")
+        output = run_adb_command("shell pm list packages -3")
 
         if output is None:
             print("Failed to retrieve package list.")
@@ -66,8 +64,7 @@ def get_package_versions():
             writer = csv.writer(csvfile)
             # Write header
             header = ["package_name", "versionName"]
-            if play_scraper_checkbox_var.get():
-                header.append("App Name")
+            header.append("App Name")
             writer.writerow(header)
 
             for package_name in packages:
@@ -75,50 +72,66 @@ def get_package_versions():
                 version =""
                 try:
                     dumpsys_output = run_adb_command(f"shell dumpsys package {package_name} | grep 'versionName'")
+                    for i in range(101):
+                        pb['value'] = i
+                        root.update_idletasks()  # Update the GUI
                     if dumpsys_output:
                         version = dumpsys_output[12:]
                     print(f"Got version {version} for {package_name}")
                 except Exception as e:
                     print(f"Error getting version for {package_name}: {e}")
 
-                # Get app name (if checkbox is checked)
-                if play_scraper_checkbox_var.get():
-                    try:
-                        app_title = get_app_title(package_name)
-                    except Exception as e:
-                        print(f"Could not find {package_name} app name on play store")
+                try:
+                    app_title = get_app_title(package_name)
+                except Exception as e:
+                    print(f"Could not find {package_name} app name on play store")
 
                 # Write row to CSV
                 row = [package_name, version]
-                if play_scraper_checkbox_var.get():
-                    row.append(app_title)
+                row.append(app_title)
                 writer.writerow(row)
-
+                # Task complete, stop the progress bar
+        pb['value'] = 100
         print(f"\nSaved final output with {len(packages)} packages and versions to {final_csv_file}\n")
 
     except Exception as e:
         print(f"Could not get versions: {e}")
 
+def start_task(pb, root):
+    # Start the task in a new thread
+    thread = threading.Thread(target=get_package_versions, args=(pb, root))
+    thread.start()
+
 root = tk.Tk()
 root.title("Get App Versions")
-root.geometry("300x180")
+root.geometry("275x180")
 root.resizable(False, False)
+root.tk.call('source', 'forest-light.tcl')
+ttk.Style().theme_use('forest-light')
 
 frame = tk.Frame(root, padx=20, pady=20)
 frame.pack(expand=True, fill='both')
 
-start_button = tk.Button(frame, text="Get App Versions", command=get_package_versions, width=30)
-start_button.pack(pady=3)
+start_button = ttk.Button(frame, text="Get App Versions", command=lambda: start_task(progressbar,root), width=30, style='Accent.TButton')
+start_button.grid(row=0, column=0, pady=2)
 
-connect_button = tk.Button(frame, text="Connect Device", command=adb_connect_device, width=30)
-connect_button.pack(pady=3)
+connect_button = ttk.Button(frame, text="Connect Device", command=adb_connect_device, width=30)
+connect_button.grid(row=3, column=0, pady=2)
 
-checkbox_var = tk.BooleanVar()
-only_third_party = tk.Checkbutton(frame, text="Only 3rd party apps?", variable=checkbox_var)
-only_third_party.pack(pady=0)
+test_var = tk.StringVar(value="Sanity Test")
+sanity_test_box = ttk.Radiobutton(frame, text="Sanity Test", variable=test_var, style='ToggleButton', width=30, value="Sanity Test")
+sanity_test_box.grid(row=1, column=0, pady=2)
 
-play_scraper_checkbox_var = tk.BooleanVar()
-get_app_name_checkbox = tk.Checkbutton(frame, text="Get app name?", variable=play_scraper_checkbox_var)
-get_app_name_checkbox.pack(pady=0)
+full_test_box = ttk.Radiobutton(frame, text="Full Test", variable=test_var, style='ToggleButton', width=30, value="Full Test")
+full_test_box.grid(row=2, column=0, pady=2)
+
+progressbar = ttk.Progressbar(
+    frame,
+    orient='horizontal',
+    length=200,
+    mode='indeterminate',
+    maximum=100 # Maximum value is 100
+)
+progressbar.grid(row=4, column=0, pady=2)
 
 root.mainloop()
