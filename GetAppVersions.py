@@ -84,8 +84,11 @@ def get_package_versions(pb, root):
         pb['mode'] = 'determinate'
         pb['value'] = 0
         root.update_idletasks()
+        #Grab only 3rd party apps
+        #output = run_adb_command("shell pm list packages -3")
+        #Grab all packages
+        output = run_adb_command("shell pm list packages")
 
-        output = run_adb_command("shell pm list packages -3")
 
         if output is None:
             print("Failed to retrieve package list.")
@@ -106,7 +109,7 @@ def get_package_versions(pb, root):
         with open(final_csv_file, mode='w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
             # Write header
-            header = ["package_name", "versionName", "App Name"]
+            header = ["Package Name", "Version Name", "App Name"]
             writer.writerow(header)
 
             for index, package_name in enumerate(packages, 1):
@@ -150,6 +153,9 @@ def get_package_versions(pb, root):
 def start_task(pb, root, start_btn):
     # Disable button during task
     start_btn.config(state='disabled')
+    connect_button.config(state='disabled')
+    sanity_test_box.config(state='disabled')
+    full_test_box.config(state='disabled')
 
     def task_wrapper():
         try:
@@ -157,6 +163,9 @@ def start_task(pb, root, start_btn):
         finally:
             # Re-enable button when done
             root.after(0, lambda: start_btn.config(state='normal'))
+            connect_button.config(state='enabled')
+            sanity_test_box.config(state='enabled')
+            full_test_box.config(state='enabled')
 
     # Start the task in a new thread
     thread = threading.Thread(target=task_wrapper, daemon=True)
