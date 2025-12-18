@@ -186,13 +186,32 @@ def get_package_versions(pb, root, test_type):
                         writer.writerow([])
                         continue
 
-                    # Get version name
-                    version = get_app_version(package_name)
-                    print(f"[{section_name}] Got version {version} for {package_name} ({app_name})")
+                    # Check if this is a multi-package entry (separated by |)
+                    if "|" in package_name:
+                        package_names = package_name.split("|")
+                        app_names = app_name.split("|")
 
-                    # Write row to CSV
-                    row = [package_name, f"{app_name} version: {version}"]
-                    writer.writerow(row)
+                        # Get versions for all packages
+                        version_lines = []
+                        for pkg, app in zip(package_names, app_names):
+                            version = get_app_version(pkg.strip())
+                            version_lines.append(f"{app.strip()} version: {version}")
+                            print(f"[{section_name}] Got version {version} for {pkg.strip()} ({app.strip()})")
+
+                        # Combine all versions with newline in the same cell
+                        combined_versions = "\n".join(version_lines)
+
+                        # Write row with all package names and combined versions
+                        row = [package_name.replace("|", ", "), combined_versions]
+                        writer.writerow(row)
+                    else:
+                        # Single package - original behavior
+                        version = get_app_version(package_name)
+                        print(f"[{section_name}] Got version {version} for {package_name} ({app_name})")
+
+                        # Write row to CSV
+                        row = [package_name, f"{app_name} version: {version}"]
+                        writer.writerow(row)
 
                     # Update progress bar
                     progress_value = (current_index / total_packages) * 100
