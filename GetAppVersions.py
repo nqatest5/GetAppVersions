@@ -29,18 +29,16 @@ def cleanup():
             except:
                 pass
 
-    # Note: threads can't be forcefully killed in Python
-    # They'll terminate when the main program exits
     print("Cleanup complete")
 
 
 def load_package_config():
-    """Load package configuration from JSON file"""
+    """Load config from JSON file"""
     config_file = "package_config.json"
 
     # Create default config if it doesn't exist
     if not os.path.exists(config_file):
-        # Use lists of [package_name, app_name] pairs to preserve duplicates
+        # Use lists of [package_name, app_name] pairs to keep duplicates
         default_config = {
             "Sanity Test": {
                 "Average": [
@@ -51,6 +49,7 @@ def load_package_config():
                     ["com.android.phone", "Phone"],
                     ["com.android.phone", "Phone"],
                     ["com.google.android.apps.maps", "Google Maps"],
+                    ["com.google.android.apps.maps", "Google Maps"],
                     ["com.android.chrome", "Chrome"],
                     ["com.sec.android.app.sbrowser", "Samsung Internet"],
                     ["com.google.android.youtube", "YouTube"],
@@ -58,6 +57,7 @@ def load_package_config():
                     ["com.spotify.music", "Spotify"],
                     ["BLANK", ""],
                     ["com.facebook.katana", "Facebook"],
+                    ["com.instagram.android", "Instagram"],
                     ["com.android.phone|com.amazon.mShop.android.shopping", "Phone|Amazon Shopping"],
                     ["com.spotify.music|com.facebook.katana", "Spotify|Facebook"],
                     ["com.supercell.clashroyale", "Clash Royale"],
@@ -157,6 +157,8 @@ def load_package_config():
                     ["com.microsoft.office.outlook", "Microsoft Outlook"],
                     ["com.microsoft.office.outlook", "Microsoft Outlook"],
                     ["com.microsoft.office.outlook", "Microsoft Outlook"],
+                    ["com.azure.authenticator", "MS Authenticator"],
+                    ["com.microsoft.windowsintune.companyportal", "MS Intune"],
                     ["com.google.android.apps.bard", "Google Gemini"],
                     ["com.google.android.apps.docs", "Google Drive"],
                     ["com.google.android.gms", "Google Play Services"],
@@ -194,7 +196,7 @@ def load_package_config():
             json.dump(default_config, f, indent=4)
         print(f"Created default config file: {config_file}")
 
-    # Load the config
+    # Load config
     with open(config_file, 'r', encoding='utf-8') as f:
         return json.load(f)
 
@@ -217,7 +219,7 @@ def run_adb_command(command):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            creationflags=0x08000000  # Windows: no cmd window
+            creationflags=0x08000000  # Windows no cmd window
         )
         active_processes.append(proc)
         stdout, stderr = proc.communicate()
@@ -238,19 +240,17 @@ def adb_connect_device():
     try:
         output = run_adb_command("devices")
         if output:
-            print("Device connected")
-        else:
-            print("No devices found.")
+            print(f"{output}")
     except Exception as e:
         print(f"Could not connect to device: {e}")
 
 
 def get_app_version(package_name):
-    """Get version for a specific package"""
+    """Get version for package"""
     try:
         dumpsys_output = run_adb_command(f"shell dumpsys package {package_name}")
         if dumpsys_output:
-            # Search for versionName in the output
+            # Search for versionName in output
             for line in dumpsys_output.splitlines():
                 if 'versionName=' in line:
                     version = line.split('versionName=')[1].strip()
@@ -296,7 +296,7 @@ def get_package_versions(pb, root, test_type):
             for section_name, packages_list in test_sections.items():
                 # Check if this is a blank space section
                 if section_name == "BLANK_SPACE" or len(packages_list) == 0:
-                    # Just add empty rows for spacing
+                    # add empty rows for spacing
                     writer.writerow([])
                     writer.writerow([])
                     continue
@@ -308,7 +308,7 @@ def get_package_versions(pb, root, test_type):
                 # Write column headers for this section
                 writer.writerow(["Package Name", "Version"])
 
-                # Process packages in this section (now it's a list)
+                # Process packages in this section (list)
                 for package_entry in packages_list:
                     package_name, app_name = package_entry
                     current_index += 1
